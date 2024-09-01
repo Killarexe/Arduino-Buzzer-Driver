@@ -1,7 +1,7 @@
+#include "driver.h"
 #include "WString.h"
 #include "HardwareSerial.h"
 #include "Arduino.h"
-#include "driver.h"
 
 const uint16_t NOTES_MAP[] = {
   33, 35, 37, 36, 41, 44, 46, 49, 52, 55, 58, 62,
@@ -14,27 +14,23 @@ const uint16_t NOTES_MAP[] = {
   4186, 4435, 4699, 4978
 };
 
-void play_buzzer(const uint16_t sound_data[], uint8_t tempo, unsigned int data_size, uint8_t pin) {
+void play_buzzer(Polytone* poly, const uint16_t sound_data[], uint8_t tempo, unsigned int data_size) {
   unsigned int note_duration = 15000 / tempo;
-  uint16_t last_note = 0;
-  for (int i = 0; i < data_size; i++) {
-    uint16_t data = sound_data[i];
-    uint16_t note = data >> 12;
-    uint16_t octave = (data & 0x0F00) >> 8;
-    #if DEBUG_MODE
-      Serial.print("Data: ");
-      Serial.println(String(data, HEX).c_str());
-      Serial.print("Note: ");
-      Serial.println(String(NOTES_MAP[note + octave * 12]).c_str());
-    #endif
-    if(note == 12) {
-      tone(pin, NOTES_MAP[last_note], note_duration);
-    }
-    else if(note < 12) {
-      last_note = note + octave * 12;
-      tone(pin, NOTES_MAP[last_note], note_duration);
-    } else {
-      noTone(pin);
+  uint8_t last_notes[4] = {0, 0, 0, 0};
+  for (uint16_t i = 0; i < data_size; i += 4) {
+    for (uint8_t j = 0; j < 4; j++) {
+      uint16_t data = sound_data[i + j];
+      uint16_t note = data >> 12;
+      uint16_t octave = (data & 0x0F00) >> 8;
+      uint8_t channel = j + 1;
+      if (note == 12) {
+        poly->tone(NOTES_MAP[last_notes[j]], note_duration, channel);
+      } else if (note < 12) {
+        last_notes[j] = note + octave * 12;
+        poly->tone(NOTES_MAP[last_notes[j]], note_duration, channel);
+      } else if (note == 13){
+        poly->stopVoice(channel);
+      }
     }
     delay(note_duration);
   }
